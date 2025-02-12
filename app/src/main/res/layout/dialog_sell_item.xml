@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Quantity Input Field -->
+    <EditText
+        android:id="@+id/dialog_quantity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter quantity"
+        android:inputType="number"
+        android:padding="8dp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Sell Button 0788786870-->
+    <Button
+        android:id="@+id/dialog_sell_button"
+        android:background="@drawable/rounded_conners_with_gradient"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Sell"
+        android:textColor="@android:color/white"/>
+
+</LinearLayout>

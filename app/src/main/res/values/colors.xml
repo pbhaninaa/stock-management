@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="heading_text_color">#3E1F47</color> <!-- Dark Purple -->
+    <color name="button_text_color">#3E1F47</color> <!-- Dark Purple -->
+    <color name="text_color">#FFFBCA</color> <!-- Dark Purple -->
+    <!-- Group 1: Warm and Rustic (Black Label Style) -->
+
+    <color name="warm_primary">#3E1F47</color> <!-- Dark Purple -->
+    <color name="warm_secondary">#5A2D75</color> <!-- Rich Purple -->
+    <color name="warm_tertiary">#9B59B6</color> <!-- Soft Lavender -->
+    <color name="warm_button_primary">#5A2D75</color> <!-- Rich Purple -->
+    <color name="warm_button_secondary">#3E1F47</color> <!-- Dark Purple -->
+    <color name="warm_text_primary">#FFFFFF</color> <!-- White for contrast -->
+    <color name="warm_text_secondary">#D1C9C9</color> <!-- Light Gray for secondary text -->
+
+    <!-- Group 2: Elegant and Vintage (Black Label Style) -->
+    <color name="vintage_primary">#1F2A37</color> <!-- Charcoal Black -->
+    <color name="vintage_secondary">#4A6A84</color> <!-- Slate Blue -->
+    <color name="vintage_tertiary">#9B59B6</color> <!-- Soft Lavender -->
+    <color name="vintage_button_primary">#4A6A84</color> <!-- Slate Blue -->
+    <color name="vintage_button_secondary">#1F2A37</color> <!-- Charcoal Black -->
+    <color name="vintage_text_primary">#FFFFFF</color> <!-- White for contrast -->
+    <color name="vintage_text_secondary">#D1C9C9</color> <!-- Light Gray for secondary text -->
+
+    <!-- Group 3: Bold and Modern (Castle Style) -->
+    <color name="modern_primary">#493D9E</color> <!-- Castle Gray (stone gray) -->
+    <color name="modern_secondary">#C2A16E</color> <!-- Regal Gold (metallic gold) -->
+    <color name="modern_tertiary">#493D9E</color> <!-- Rich Purple (deep royal purple) -->
+    <color name="modern_button_primary">#C2A16E</color> <!-- Regal Gold (metallic gold) -->
+    <color name="modern_button_secondary">#3E3E3E</color> <!-- Castle Gray (stone gray) -->
+    <color name="modern_text_primary">#FFFFFF</color> <!-- White for contrast -->
+    <color name="modern_text_secondary">#D1C9C9</color> <!-- Light Gray for secondary text -->
+
+    <!-- Original Colors (Updated for Black Label style) -->
+    <color name="purple_200">#9B59B6</color> <!-- Soft Lavender -->
+    <color name="purple_500">#5A2D75</color> <!-- Rich Purple -->
+    <color name="purple_700">#3E1F47</color> <!-- Dark Purple -->
+    <color name="teal_200">#5A6F7D</color> <!-- Muted Teal -->
+    <color name="teal_700">#1F2A37</color> <!-- Charcoal Black -->
+    <color name="black">#0A0A0A</color> <!-- Black -->
+    <color name="white">#FFFFFF</color> <!-- White -->
+</resources>

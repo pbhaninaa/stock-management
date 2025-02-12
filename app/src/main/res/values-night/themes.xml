@@ -1,0 +1,10 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.Finance" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/modern_primary</item> <!-- Black -->
+        <item name="colorPrimaryDark">@color/modern_primary</item> <!-- Black -->
+        <item name="colorAccent">@color/modern_secondary</item> <!-- Gold Accent -->
+        <!-- Customize your theme here. -->
+    </style>
+</resources>
