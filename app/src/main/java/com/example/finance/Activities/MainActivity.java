@@ -35,16 +35,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static MainActivity instance;  // Singleton instance
+    private static MainActivity instance;
     private StockDatabaseHelper dbHelper;
     public static List<String> drinks = new ArrayList<>();
     public static List<String> sizes = new ArrayList<>();
     private TextView timeTextView;
     private Handler handler = new Handler();
     private Runnable timeUpdater;
-
     String currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,7 +54,6 @@ public class MainActivity extends AppCompatActivity {
             Continue();
         }
     }
-
     public void Continue() {
         // Initialize the database helper
         dbHelper = new StockDatabaseHelper(this);
@@ -87,8 +84,6 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(MainActivity.this, ManagementActivity.class);
         startActivity(intent);
     }
-
-    // Public static method to access sendReport() from other activities
     public static void sendReportFromOtherActivity(Context context, boolean closeApp) {
         if (instance != null) {
             instance.sendDailyReport(closeApp); // Call sendReport from MainActivity instance
@@ -97,7 +92,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(context, "MainActivity not initialized yet", Toast.LENGTH_SHORT).show();
         }
     }
-
     private void showTavernDetailsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Enter Tavern Information");
@@ -154,7 +148,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
     private boolean getTavernDetails() {
         SharedPreferences sharedPreferences = getSharedPreferences("TavernPrefs", MODE_PRIVATE);
         String savedTavernName = sharedPreferences.getString("tavernName", "");
@@ -214,23 +207,14 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
     public void sendFullReport(boolean closeApp) {
-
-        // Fetch sales data
         double totalAmount = dbHelper.getSumOfSellingPrice(currentDate);
         String mostSoldItem = dbHelper.getMostAppearingItemWithSizeForDate(currentDate);
         String salesReport = dbHelper.getSalesReportForDate(currentDate);
-
-        // Get low stock items
         String lowStockItems = dbHelper.getLowStockItems();
         SharedPreferences sharedPreferences = getSharedPreferences("TavernPrefs", MODE_PRIVATE);
         String TavernName = sharedPreferences.getString("tavernName", "");
-
-
-        // Construct the email subject and body
         String subject = TavernName + " Full Report for " + currentDate;
-
         StringBuilder bodyBuilder = new StringBuilder();
         bodyBuilder.append("Dear Admin,\n\n")
                 .append("📊 Full Sales Report - ").append(currentDate).append(" 📊\n\n")
@@ -246,24 +230,16 @@ public class MainActivity extends AppCompatActivity {
                     .append("This is a regular daily update.\n\n");
         }
         bodyBuilder.append(salesReport);
-
         bodyBuilder.append("\n\nBest regards,\nJays Sales System\n\n");
-
-
         String body = bodyBuilder.toString();
-
-        // Send the email
         Communication.sendEmail(this, subject, body, success -> {
             if (success) {
-                if (closeApp) {
-                    exitApp(null); // Close the app if it's the shop closing report
-                }
+               menu(null);
             } else {
                 Utils.showToast(this, "Failed to send report email.");
             }
         });
     }
-
     private void startUpdatingTime() {
         timeUpdater = new Runnable() {
             @Override
@@ -274,38 +250,25 @@ public class MainActivity extends AppCompatActivity {
         };
         handler.post(timeUpdater);
     }
-
     private void updateTime() {
         String currentTime = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
         String timeFormatted = currentTime.substring(0, 5);
         String text = "Date : " + currentDate + "\nTime : " + timeFormatted;
-
-        // Create a SpannableString to apply bold style to the keys
         SpannableString spannableText = new SpannableString(text);
-
-        // Apply bold style to the keys
-        spannableText.setSpan(new StyleSpan(Typeface.BOLD), 0, 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); // "Date : "
-        spannableText.setSpan(new StyleSpan(Typeface.BOLD), text.indexOf("Time :"), text.indexOf("Time :") + 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); // "Time :"
-
-        // Set the text with the applied styles
+        spannableText.setSpan(new StyleSpan(Typeface.BOLD), 0, 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        spannableText.setSpan(new StyleSpan(Typeface.BOLD), text.indexOf("Time :"), text.indexOf("Time :") + 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         timeTextView.setText(spannableText);
-
         if (currentTime.equals("00:00:00")) {
             sendDailyReport(false);
         }
     }
-
     @Override
     public void onBackPressed() {
         Utils.showToast(this, "Unganya mfana!!!");
     }
-
-    // Method to stop the time updates
     private void stopUpdatingTime() {
         handler.removeCallbacks(timeUpdater);
     }
-
-    // Method to add items to the database and populate the 'bev' list
     private void addItemsToDatabase() {
         for (String drink : drinks) {
             dbHelper.addItem(drink);
@@ -314,23 +277,18 @@ public class MainActivity extends AppCompatActivity {
             dbHelper.addItemSize(size);
         }
     }
-
-    // Method to exit the app
     public void exitApp(View view) {
         stopUpdatingTime(); // Stop time updates before exiting
         finishAffinity();
         System.exit(0);
     }
-
-    // Method to navigate to ManagementActivity
     public void menu(View view) {
         Intent intent = new Intent(MainActivity.this, ManagementActivity.class);
         startActivity(intent);
     }
-
-    @Override
+   @Override
     protected void onDestroy() {
         super.onDestroy();
-        stopUpdatingTime(); // Ensure to stop updating when activity is destroyed
+        stopUpdatingTime();
     }
 }
