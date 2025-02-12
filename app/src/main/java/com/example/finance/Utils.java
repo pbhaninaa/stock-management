@@ -176,36 +176,27 @@ public class Utils {
             textView.setTextColor(Color.parseColor("#FFA500")); // Orange
         } else {
             textView.setTextColor(Color.parseColor("#FFA500")); // Orange
-
         }
-
-        // Set the text
         textView.setText(String.valueOf(quantity));
     }
 
     public static void showToast(Context context, String message) {
         LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View layout = inflater.inflate(R.layout.custom_toast, null);
-
         TextView text = layout.findViewById(R.id.textViewToast);
         text.setText(message);
-
         Toast toast = new Toast(context);
         toast.setDuration(Toast.LENGTH_SHORT);
         toast.setView(layout);
         toast.show();
     }
-
     public static void success(Context context, String message) {
         LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View layout = inflater.inflate(R.layout.custom_toast, null);
-
         TextView text = layout.findViewById(R.id.textViewToast);
         text.setTextColor(ContextCompat.getColor(context, R.color.white));
         layout.setBackgroundTintList(ContextCompat.getColorStateList(context, R.color.white));
         text.setText(message);
-
-
         Toast toast = new Toast(context);
         toast.setDuration(Toast.LENGTH_SHORT);
         toast.setView(layout);
@@ -220,28 +211,18 @@ public class Utils {
     }
 
     public static void setFieldFocus(EditText field, Context context) {
-        // Request focus for the field
         field.requestFocus();
-
-        // Get the InputMethodManager system service
         InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-
-        // Show the soft keyboard
         if (imm != null) {
             imm.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT);
         }
     }
     public static String getDeviceLocation(Context context) {
-        // Initialize location provider
         FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
-
-        // Check for location permissions
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return "Location permission not granted";
         }
-
-        // Use a background thread to fetch location
         ExecutorService executor = Executors.newSingleThreadExecutor();
         String[] locationResult = {"Location not found"};
 
@@ -256,6 +237,6 @@ public class Utils {
             }
         });
 
-        return locationResult[0]; // Return coordinates or "Location not found"
+        return locationResult[0];
     }
 }
