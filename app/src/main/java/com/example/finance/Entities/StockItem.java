@@ -6,16 +6,19 @@ public class StockItem {
     private double costPrice;
     private double sellingPrice;
     private int quantity;
+    private int receivedQuantity;
     private String description;
     private String category;
     private String itemSize;
 
-    public StockItem(int id, String itemName, double costPrice, double sellingPrice, int quantity, String description, String category,String itemSize) {
+    public StockItem(int id, String itemName, double costPrice, double sellingPrice, int quantity,
+                     int receivedQuantity, String description, String category, String itemSize) {
         this.id = id;
         this.itemName = itemName;
         this.costPrice = costPrice;
         this.sellingPrice = sellingPrice;
         this.quantity = quantity;
+        this.receivedQuantity = receivedQuantity;
         this.description = description;
         this.category = category;
         this.itemSize = itemSize;
@@ -68,6 +71,14 @@ public class StockItem {
 
     public void setQuantity(int quantity) {
         this.quantity = quantity;
+    }
+
+    public int getReceivedQuantity() {
+        return receivedQuantity;
+    }
+
+    public void setReceivedQuantity(int receivedQuantity) {
+        this.receivedQuantity = receivedQuantity;
     }
 
     public String getDescription() {

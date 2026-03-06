@@ -54,6 +54,15 @@
         android:textColor="@color/white"
         android:textStyle="bold" />
 
+    <TextView
+        android:id="@+id/low_stock_summary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/warm_primary"
+        android:padding="12dp"
+        android:textColor="@color/white"
+        android:textStyle="bold" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/dashboard"
         android:layout_width="match_parent"

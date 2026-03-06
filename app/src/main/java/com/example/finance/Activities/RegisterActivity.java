@@ -21,6 +21,7 @@ public class RegisterActivity extends AppCompatActivity {
     private StockDatabaseHelper dbHelper;
     private EditText fullNameEditText;
     private EditText usernameEditText;
+    private EditText emailEditText;
     private EditText passwordEditText;
     private EditText confirmPasswordEditText;
     private Spinner roleSpinner;
@@ -35,6 +36,7 @@ public class RegisterActivity extends AppCompatActivity {
         dbHelper = new StockDatabaseHelper(this);
         fullNameEditText = findViewById(R.id.register_full_name);
         usernameEditText = findViewById(R.id.register_username);
+        emailEditText = findViewById(R.id.register_email);
         passwordEditText = findViewById(R.id.register_password);
         confirmPasswordEditText = findViewById(R.id.register_confirm_password);
         roleSpinner = findViewById(R.id.register_role_spinner);
@@ -94,6 +96,7 @@ public class RegisterActivity extends AppCompatActivity {
     private void registerUser() {
         String fullName = fullNameEditText.getText().toString().trim();
         String username = usernameEditText.getText().toString().trim();
+        String email = emailEditText.getText().toString().trim().toLowerCase();
         String password = passwordEditText.getText().toString().trim();
         String confirmPassword = confirmPasswordEditText.getText().toString().trim();
 
@@ -115,7 +118,18 @@ public class RegisterActivity extends AppCompatActivity {
         String role = isFirstOwnerRegistration ? Utils.ROLE_OWNER :
                 roleSpinner.getSelectedItem().toString();
 
-        User user = dbHelper.createUser(fullName, username, password, role);
+        boolean requiresEmail = Utils.ROLE_OWNER.equals(role) || Utils.ROLE_MANAGER.equals(role);
+        if (requiresEmail && email.isEmpty()) {
+            Utils.showToast(this, "Email is required for Owner and Manager accounts.");
+            return;
+        }
+
+        if (!email.isEmpty() && !Utils.isValidEmail(email)) {
+            Utils.showToast(this, "Enter a valid email address.");
+            return;
+        }
+
+        User user = dbHelper.createUser(fullName, username, email, password, role);
         if (user == null) {
             Utils.showToast(this, "That username is already in use.");
             return;

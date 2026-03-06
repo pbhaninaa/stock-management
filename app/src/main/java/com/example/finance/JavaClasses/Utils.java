@@ -11,6 +11,7 @@ import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Base64;
+import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -27,6 +28,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
@@ -58,6 +60,16 @@ public class Utils {
 
     public static String getCurrentDateTime() {
         return new SimpleDateFormat("dd MMM yyyy 'at' hh:mma", Locale.getDefault()).format(new Date());
+    }
+
+    public static String getCurrentDate() {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+    }
+
+    public static String getDateDaysAgo(int daysAgo) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DAY_OF_YEAR, -daysAgo);
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.getTime());
     }
 
     public static void setCaps(EditText editText) {
@@ -110,10 +122,11 @@ public class Utils {
         new Handler().postDelayed(() -> layout.setVisibility(View.GONE), 3000);
     }
 
-    public static void setStockAvailabilityColor(TextView textView, int quantity) {
-        if (quantity <= 20) {
+    public static void setStockAvailabilityColor(TextView textView, int quantity, int lowStockThreshold) {
+        int warningThreshold = Math.max(lowStockThreshold, 1);
+        if (quantity <= warningThreshold) {
             textView.setTextColor(Color.RED);
-        } else if (quantity <= 80) {
+        } else if (quantity <= (warningThreshold * 2)) {
             textView.setTextColor(Color.parseColor("#FFA500"));
         } else {
             textView.setTextColor(ContextCompat.getColor(textView.getContext(), R.color.white));
@@ -165,6 +178,22 @@ public class Utils {
 
     public static String normalizeUsername(String username) {
         return username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isValidEmail(String email) {
+        return email != null && Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches();
+    }
+
+    public static int resolveLowStockThreshold(int receivedQuantity, Integer globalThreshold) {
+        if (globalThreshold != null && globalThreshold > 0) {
+            return globalThreshold;
+        }
+
+        if (receivedQuantity <= 0) {
+            return 1;
+        }
+
+        return Math.max(1, (int) Math.ceil(receivedQuantity * 0.10d));
     }
 
     public static String hashPassword(String password) {

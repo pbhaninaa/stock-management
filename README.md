@@ -1,6 +1,6 @@
 # Finance App
 
-This is an Android stock and sales management app for a single shop or tavern. It works offline on one device, stores its data locally in SQLite, and now uses local authentication with role-based access control.
+This is an Android stock and sales management app for a single shop or tavern. It works offline on one device, stores its data locally in SQLite, and uses local authentication with role-based access control.
 
 ## What The App Does
 
@@ -12,6 +12,7 @@ The app helps staff:
 - see the most sold item for the day
 - watch for low stock
 - manage staff accounts based on role
+- send daily email reports to business recipients
 
 The app is designed for one device in one business location. It does not currently sync users or data between multiple devices.
 
@@ -20,11 +21,15 @@ The app is designed for one device in one business location. It does not current
 - local login and registration
 - first-user Owner setup
 - three roles: `Owner`, `Manager`, `Cashier`
+- required email capture for `Owner` and `Manager`
 - stock item and size management
-- stock quantity and pricing management
+- stock quantity, pricing, and received-stock baseline tracking
 - sales recording from the dashboard
 - user management for the Owner
-- optional email report sending if SMTP is configured
+- manual report sending to all active `Owner` and `Manager` emails
+- store-close report sending
+- automatic near-midnight daily report fallback
+- global low-stock threshold or per-item 10% fallback logic
 
 ## How Authentication Works
 
@@ -36,6 +41,7 @@ Authentication is fully local.
 - Logged-in session details are stored in local preferences.
 - The session stores metadata like user id, display name, and role.
 - The session does not store the password.
+- `Owner` and `Manager` accounts store email addresses for reporting.
 
 ### First Launch
 
@@ -71,10 +77,13 @@ The Owner can:
 - manage stock
 - sell items
 - send reports
+- receive daily and manual report emails
 - edit tavern details
 - create staff accounts
 - enable or disable staff accounts
 - switch non-owner users between `Manager` and `Cashier`
+- edit user email addresses
+- configure the global low-stock threshold
 - reset stock and sales data
 
 ### Manager
@@ -90,6 +99,7 @@ The Manager can:
 - add items and item sizes
 - add or update stock quantities and prices
 - send reports
+- receive daily and manual report emails
 
 The Manager cannot:
 
@@ -98,6 +108,7 @@ The Manager cannot:
 - disable users
 - reset stock and sales data
 - edit tavern details through the Owner menu
+- change low-stock settings
 
 ### Cashier
 
@@ -115,6 +126,7 @@ The Cashier cannot:
 - add items
 - add sizes
 - send reports
+- receive automated role-based reports
 - manage users
 - reset stock and sales data
 
@@ -127,6 +139,7 @@ This is the app entry point. It does not act as the business screen anymore. It 
 - checks tavern details
 - checks whether users exist
 - checks whether a session exists
+- schedules the daily report worker
 - routes the user to registration, login, or the management screen
 
 ### `RegisterActivity`
@@ -138,10 +151,11 @@ This screen is used in two cases:
 
 Validation rules:
 
-- all fields are required
+- all fields are required except email for `Cashier`
 - passwords must match
 - password must be at least 4 characters
 - usernames must be unique
+- `Owner` and `Manager` accounts must have a valid email address
 
 ### `LoginActivity`
 
@@ -167,6 +181,8 @@ It includes:
 - stock list
 - sell-item action by tapping a stock row
 - stock management form for allowed roles
+- low-stock summary banner
+- role-aware menu actions
 
 The screen changes behavior based on the current role.
 
@@ -180,6 +196,7 @@ The Owner can:
 - create new staff accounts
 - enable or disable non-owner users
 - switch non-owner roles between `Manager` and `Cashier`
+- view and update stored user emails
 
 The Owner account cannot be disabled or changed from this screen.
 
@@ -201,11 +218,15 @@ They can:
 If the selected item and size do not already exist in stock:
 
 - a new stock row is created
+- the received quantity baseline is initialized from the entered quantity
 
 If the selected item and size already exist:
 
 - the quantity is increased
 - pricing values are updated
+- the received quantity baseline is also increased
+
+This received baseline is used by the per-item low-stock fallback rule.
 
 ### Selling Items
 
@@ -219,7 +240,7 @@ Selling flow:
 4. The app validates that enough stock exists.
 5. Stock quantity is reduced.
 6. The sale is saved in the sales table.
-7. Totals and dashboard summaries are refreshed.
+7. Totals, summaries, and low-stock status are refreshed.
 
 ### Dashboard Data
 
@@ -229,6 +250,41 @@ The dashboard shows:
 - quantity remaining
 - total amount sold for the day
 - most sold item for the day
+- low-stock summary information
+
+## Low Stock Alerts
+
+The app supports two low-stock modes.
+
+### Global Threshold Mode
+
+The `Owner` can set one global low-stock threshold for the whole store.
+
+If this is set:
+
+- every item is treated as low stock when `current quantity <= global threshold`
+- the dashboard warning and report logic both use the same rule
+
+### Fallback 10% Mode
+
+If the global threshold is left empty, the app falls back to per-item monitoring.
+
+For every stock item:
+
+- the app stores a `received quantity` baseline
+- the item is treated as low stock when `current quantity <= 10% of received quantity`
+- each item is checked independently
+
+This means every item can trigger its own low-stock alert based on its own received inventory history.
+
+### Where Alerts Appear
+
+Low-stock items appear in:
+
+- the dashboard low-stock summary
+- manual full reports
+- store-close reports
+- automatic near-midnight reports
 
 ## Tavern Details
 
@@ -245,7 +301,47 @@ The Owner can update these details later from the menu.
 
 The app can send reports by email, but only if SMTP settings are configured.
 
-Currently, report sending is disabled by default because hardcoded credentials were removed for security.
+Reports are sent to all active `Owner` and `Manager` accounts that have email addresses.
+
+### Report Triggers
+
+The app supports three report paths:
+
+- manual full report from the menu
+- store-close report when the store is explicitly closed from the app
+- automatic near-midnight fallback if the store was not closed
+
+### Store Close Behavior
+
+When an allowed user closes the store:
+
+- the app can send the daily report immediately
+- the day is recorded in report history
+- the midnight worker skips sending a duplicate report for that same day
+
+### Midnight Fallback
+
+If the store was not closed through the app:
+
+- a background worker runs near midnight
+- it sends the previous day’s report
+- it skips the send if a close-of-day report was already sent for that day
+
+This background scheduling is best effort, not exact-to-the-second `00:00`.
+
+### Report Content
+
+Reports include:
+
+- total sales amount
+- best-selling item
+- detailed sales lines for the date
+- low-stock alerts
+- trigger type such as manual, store close, or automatic fallback
+
+Low-stock alerts are always included in report content.
+
+### SMTP Configuration
 
 To enable reporting, set these values in:
 
@@ -255,7 +351,6 @@ Required values:
 
 - `email_sender`
 - `app_email_password`
-- `report_email_recipient`
 - `smtp_host`
 - `smtp_port`
 
@@ -272,6 +367,8 @@ Important tables:
 - `sales_table`
 - `items_in_store`
 - `items_sizes_in_store`
+- `app_settings`
+- `report_history`
 
 ### `users`
 
@@ -280,6 +377,7 @@ Stores:
 - id
 - full name
 - username
+- email
 - password hash
 - role
 - active flag
@@ -293,6 +391,7 @@ Stores stock records:
 - cost price
 - selling price
 - quantity
+- received quantity
 - description
 - category
 - size
@@ -310,6 +409,19 @@ Stores recorded sales:
 - date
 - category
 
+### `app_settings`
+
+Stores application-level settings such as:
+
+- global low-stock threshold
+
+### `report_history`
+
+Stores sent report history so the app can:
+
+- detect already sent store-close reports
+- avoid duplicate midnight sends for the same business day
+
 ## Security Improvements Included
 
 The current version fixes several important issues from the older app flow:
@@ -321,6 +433,7 @@ The current version fixes several important issues from the older app flow:
 - fixed the receiver class path in the manifest
 - removed hardcoded email credentials from source/resources
 - added role checks in both UI behavior and app logic
+- stores passwords as salted hashes instead of plain text
 
 ## Running The App
 
@@ -350,16 +463,20 @@ From the project root:
 - there is no cloud sync
 - there is no backend API for auth
 - email reporting needs manual SMTP configuration
+- background midnight reporting depends on the device being on and allowed to run background work
 - the app is intended for offline single-shop use
 
 ## Suggested Test Flow
 
 1. Launch the app on a clean install.
 2. Enter tavern details.
-3. Create the first Owner account.
+3. Create the first Owner account with an email address.
 4. Add stock as Owner.
 5. Create one Manager and one Cashier user.
-6. Log in as Manager and verify stock management works.
-7. Log in as Cashier and verify stock management is blocked.
-8. Sell items from each allowed role.
-9. Verify Owner-only features like user management and reset are blocked for non-owners.
+6. Verify the Manager must have an email and the Cashier can be created without one.
+7. Log in as Manager and verify stock management works.
+8. Log in as Cashier and verify stock management is blocked.
+9. Sell items until at least one item reaches 10% of its received quantity.
+10. Verify that the item appears in the low-stock summary and report output.
+11. Send a manual full report and confirm it targets active Owner and Manager emails.
+12. Use the store-close action and verify the day is treated as already reported.

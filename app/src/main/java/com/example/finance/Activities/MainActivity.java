@@ -21,6 +21,7 @@ public class MainActivity extends AppCompatActivity {
 
         dbHelper = new StockDatabaseHelper(this);
         dbHelper.seedDefaultSelections();
+        ReportScheduler.scheduleDailyReport(this);
 
         statusTextView = findViewById(R.id.test);
         statusTextView.setText("Preparing secure login...");

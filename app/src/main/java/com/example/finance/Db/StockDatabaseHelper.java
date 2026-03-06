@@ -22,19 +22,22 @@ import java.util.Locale;
 public class StockDatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "stock.db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     private static final String TABLE_STOCK = "stock_table";
     private static final String TABLE_SALES = "sales_table";
     private static final String ITEMS_TABLE_STOCK = "items_in_store";
     private static final String ITEMS_SIZE_TABLE_STOCK = "items_sizes_in_store";
     private static final String TABLE_USERS = "users";
+    private static final String TABLE_APP_SETTINGS = "app_settings";
+    private static final String TABLE_REPORT_HISTORY = "report_history";
 
     private static final String COL_ID = "id";
     private static final String COL_ITEM_NAME = "item_name";
     private static final String COL_COST_PRICE = "cost_price";
     private static final String COL_SELLING_PRICE = "selling_price";
     private static final String COL_QUANTITY = "quantity";
+    private static final String COL_RECEIVED_QUANTITY = "received_quantity";
     private static final String COL_DESCRIPTION = "description";
     private static final String COL_CATEGORY = "category";
     private static final String COL_SIZE = "size";
@@ -42,10 +45,22 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
 
     private static final String COL_FULL_NAME = "full_name";
     private static final String COL_USERNAME = "username";
+    private static final String COL_EMAIL = "email";
     private static final String COL_PASSWORD_HASH = "password_hash";
     private static final String COL_ROLE = "role";
     private static final String COL_IS_ACTIVE = "is_active";
     private static final String COL_CREATED_AT = "created_at";
+
+    private static final String COL_SETTING_KEY = "setting_key";
+    private static final String COL_SETTING_VALUE = "setting_value";
+
+    private static final String COL_REPORT_KIND = "report_kind";
+    private static final String COL_SENT_AT = "sent_at";
+
+    public static final String SETTING_GLOBAL_LOW_STOCK_THRESHOLD = "global_low_stock_threshold";
+    public static final String REPORT_KIND_STORE_CLOSE = "store_close";
+    public static final String REPORT_KIND_MIDNIGHT_AUTO = "midnight_auto";
+    public static final String REPORT_KIND_MANUAL_FULL = "manual_full";
 
     private static final String CREATE_TABLE_STOCK = "CREATE TABLE IF NOT EXISTS " + TABLE_STOCK + " (" +
             COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -53,6 +68,7 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
             COL_COST_PRICE + " REAL, " +
             COL_SELLING_PRICE + " REAL, " +
             COL_QUANTITY + " INTEGER, " +
+            COL_RECEIVED_QUANTITY + " INTEGER NOT NULL DEFAULT 0, " +
             COL_DESCRIPTION + " TEXT, " +
             COL_SIZE + " TEXT, " +
             COL_CATEGORY + " TEXT)";
@@ -80,10 +96,21 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
             COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
             COL_FULL_NAME + " TEXT NOT NULL, " +
             COL_USERNAME + " TEXT NOT NULL UNIQUE, " +
+            COL_EMAIL + " TEXT DEFAULT '', " +
             COL_PASSWORD_HASH + " TEXT NOT NULL, " +
             COL_ROLE + " TEXT NOT NULL, " +
             COL_IS_ACTIVE + " INTEGER NOT NULL DEFAULT 1, " +
             COL_CREATED_AT + " TEXT NOT NULL)";
+
+    private static final String CREATE_TABLE_APP_SETTINGS = "CREATE TABLE IF NOT EXISTS " + TABLE_APP_SETTINGS + " (" +
+            COL_SETTING_KEY + " TEXT PRIMARY KEY, " +
+            COL_SETTING_VALUE + " TEXT)";
+
+    private static final String CREATE_TABLE_REPORT_HISTORY = "CREATE TABLE IF NOT EXISTS " + TABLE_REPORT_HISTORY + " (" +
+            COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            COL_DATE + " TEXT NOT NULL, " +
+            COL_REPORT_KIND + " TEXT NOT NULL, " +
+            COL_SENT_AT + " TEXT NOT NULL)";
 
     public StockDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -91,11 +118,7 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL(CREATE_TABLE_STOCK);
-        db.execSQL(CREATE_TABLE_ITEMS);
-        db.execSQL(CREATE_TABLE_ITEM_SIZES);
-        db.execSQL(CREATE_TABLE_SALES);
-        db.execSQL(CREATE_TABLE_USERS);
+        createTables(db);
     }
 
     @Override
@@ -103,6 +126,43 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 2) {
             db.execSQL(CREATE_TABLE_USERS);
         }
+
+        if (oldVersion < 3) {
+            createTables(db);
+
+            if (!columnExists(db, TABLE_USERS, COL_EMAIL)) {
+                db.execSQL("ALTER TABLE " + TABLE_USERS + " ADD COLUMN " + COL_EMAIL + " TEXT DEFAULT ''");
+            }
+
+            if (!columnExists(db, TABLE_STOCK, COL_RECEIVED_QUANTITY)) {
+                db.execSQL("ALTER TABLE " + TABLE_STOCK + " ADD COLUMN " + COL_RECEIVED_QUANTITY + " INTEGER NOT NULL DEFAULT 0");
+                db.execSQL("UPDATE " + TABLE_STOCK + " SET " + COL_RECEIVED_QUANTITY + " = " + COL_QUANTITY +
+                        " WHERE " + COL_RECEIVED_QUANTITY + " = 0");
+            }
+        }
+    }
+
+    private void createTables(SQLiteDatabase db) {
+        db.execSQL(CREATE_TABLE_STOCK);
+        db.execSQL(CREATE_TABLE_ITEMS);
+        db.execSQL(CREATE_TABLE_ITEM_SIZES);
+        db.execSQL(CREATE_TABLE_SALES);
+        db.execSQL(CREATE_TABLE_USERS);
+        db.execSQL(CREATE_TABLE_APP_SETTINGS);
+        db.execSQL(CREATE_TABLE_REPORT_HISTORY);
+    }
+
+    private boolean columnExists(SQLiteDatabase db, String tableName, String columnName) {
+        Cursor cursor = db.rawQuery("PRAGMA table_info(" + tableName + ")", null);
+        boolean exists = false;
+        while (cursor.moveToNext()) {
+            if (columnName.equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) {
+                exists = true;
+                break;
+            }
+        }
+        cursor.close();
+        return exists;
     }
 
     private String now() {
@@ -134,7 +194,7 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
         return isTaken;
     }
 
-    public User createUser(String fullName, String username, String password, String role) {
+    public User createUser(String fullName, String username, String email, String password, String role) {
         if (isUsernameTaken(username)) {
             return null;
         }
@@ -143,6 +203,7 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(COL_FULL_NAME, fullName.trim());
         values.put(COL_USERNAME, Utils.normalizeUsername(username));
+        values.put(COL_EMAIL, email == null ? "" : email.trim().toLowerCase(Locale.ROOT));
         values.put(COL_PASSWORD_HASH, Utils.hashPassword(password));
         values.put(COL_ROLE, role);
         values.put(COL_IS_ACTIVE, 1);
@@ -215,11 +276,91 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
                 new String[]{String.valueOf(userId)}) > 0;
     }
 
+    public boolean updateUserEmail(long userId, String email) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_EMAIL, email == null ? "" : email.trim().toLowerCase(Locale.ROOT));
+        return db.update(TABLE_USERS, values, COL_ID + " = ?",
+                new String[]{String.valueOf(userId)}) > 0;
+    }
+
+    public List<String> getActiveReportRecipientEmails() {
+        List<String> recipients = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        String selection = COL_IS_ACTIVE + " = 1 AND " + COL_EMAIL + " <> '' AND (" +
+                COL_ROLE + " = ? OR " + COL_ROLE + " = ?)";
+        Cursor cursor = db.query(true, TABLE_USERS, new String[]{COL_EMAIL}, selection,
+                new String[]{Utils.ROLE_OWNER, Utils.ROLE_MANAGER}, null, null, COL_EMAIL + " ASC", null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                recipients.add(cursor.getString(cursor.getColumnIndexOrThrow(COL_EMAIL)));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return recipients;
+    }
+
+    public Integer getGlobalLowStockThreshold() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_APP_SETTINGS, new String[]{COL_SETTING_VALUE},
+                COL_SETTING_KEY + " = ?", new String[]{SETTING_GLOBAL_LOW_STOCK_THRESHOLD},
+                null, null, null);
+        Integer threshold = null;
+        if (cursor.moveToFirst()) {
+            String value = cursor.getString(cursor.getColumnIndexOrThrow(COL_SETTING_VALUE));
+            if (value != null && !value.trim().isEmpty()) {
+                try {
+                    threshold = Integer.parseInt(value.trim());
+                } catch (NumberFormatException ignored) {
+                    threshold = null;
+                }
+            }
+        }
+        cursor.close();
+        return threshold;
+    }
+
+    public void setGlobalLowStockThreshold(Integer threshold) {
+        SQLiteDatabase db = getWritableDatabase();
+        if (threshold == null || threshold <= 0) {
+            db.delete(TABLE_APP_SETTINGS, COL_SETTING_KEY + " = ?",
+                    new String[]{SETTING_GLOBAL_LOW_STOCK_THRESHOLD});
+            return;
+        }
+
+        ContentValues values = new ContentValues();
+        values.put(COL_SETTING_KEY, SETTING_GLOBAL_LOW_STOCK_THRESHOLD);
+        values.put(COL_SETTING_VALUE, String.valueOf(threshold));
+        db.insertWithOnConflict(TABLE_APP_SETTINGS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    public boolean hasDailyReportBeenSent(String reportDate) {
+        SQLiteDatabase db = getReadableDatabase();
+        String selection = COL_DATE + " = ? AND (" + COL_REPORT_KIND + " = ? OR " + COL_REPORT_KIND + " = ?)";
+        Cursor cursor = db.query(TABLE_REPORT_HISTORY, new String[]{COL_ID}, selection,
+                new String[]{reportDate, REPORT_KIND_STORE_CLOSE, REPORT_KIND_MIDNIGHT_AUTO},
+                null, null, null);
+        boolean exists = cursor.moveToFirst();
+        cursor.close();
+        return exists;
+    }
+
+    public void recordReportSent(String reportDate, String reportKind) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_DATE, reportDate);
+        values.put(COL_REPORT_KIND, reportKind);
+        values.put(COL_SENT_AT, now());
+        db.insert(TABLE_REPORT_HISTORY, null, values);
+    }
+
     private User cursorToUser(Cursor cursor) {
         return new User(
                 cursor.getLong(cursor.getColumnIndexOrThrow(COL_ID)),
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_FULL_NAME)),
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_USERNAME)),
+                cursor.getString(cursor.getColumnIndexOrThrow(COL_EMAIL)),
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_ROLE)),
                 cursor.getInt(cursor.getColumnIndexOrThrow(COL_IS_ACTIVE)) == 1,
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_CREATED_AT))
@@ -241,10 +382,37 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
         values.put(COL_COST_PRICE, costPrice);
         values.put(COL_SELLING_PRICE, sellingPrice);
         values.put(COL_QUANTITY, quantity);
+        values.put(COL_RECEIVED_QUANTITY, quantity);
         values.put(COL_DESCRIPTION, description);
         values.put(COL_CATEGORY, category);
         values.put(COL_SIZE, itemSize);
         return db.insert(TABLE_STOCK, null, values);
+    }
+
+    public void restockItem(String name, String size, double costPrice, double sellingPrice,
+                            int addedQuantity, String description, String category) {
+        SQLiteDatabase db = getWritableDatabase();
+        Cursor cursor = db.query(TABLE_STOCK, new String[]{COL_QUANTITY, COL_RECEIVED_QUANTITY},
+                COL_ITEM_NAME + " = ? AND " + COL_SIZE + " = ?",
+                new String[]{name, size}, null, null, null);
+
+        int currentQuantity = 0;
+        int receivedQuantity = 0;
+        if (cursor.moveToFirst()) {
+            currentQuantity = cursor.getInt(cursor.getColumnIndexOrThrow(COL_QUANTITY));
+            receivedQuantity = cursor.getInt(cursor.getColumnIndexOrThrow(COL_RECEIVED_QUANTITY));
+        }
+        cursor.close();
+
+        ContentValues values = new ContentValues();
+        values.put(COL_COST_PRICE, costPrice);
+        values.put(COL_SELLING_PRICE, sellingPrice);
+        values.put(COL_QUANTITY, currentQuantity + addedQuantity);
+        values.put(COL_RECEIVED_QUANTITY, receivedQuantity + addedQuantity);
+        values.put(COL_DESCRIPTION, description);
+        values.put(COL_CATEGORY, category);
+        db.update(TABLE_STOCK, values, COL_ITEM_NAME + " = ? AND " + COL_SIZE + " = ?",
+                new String[]{name, size});
     }
 
     public long addItem(String itemName) {
@@ -445,40 +613,55 @@ public class StockDatabaseHelper extends SQLiteOpenHelper {
                 cursor.getDouble(cursor.getColumnIndexOrThrow(COL_COST_PRICE)),
                 cursor.getDouble(cursor.getColumnIndexOrThrow(COL_SELLING_PRICE)),
                 cursor.getInt(cursor.getColumnIndexOrThrow(COL_QUANTITY)),
+                cursor.getInt(cursor.getColumnIndexOrThrow(COL_RECEIVED_QUANTITY)),
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_DESCRIPTION)),
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_CATEGORY)),
                 cursor.getString(cursor.getColumnIndexOrThrow(COL_SIZE))
         );
     }
 
+    public List<StockItem> getLowStockStockItems() {
+        List<StockItem> lowStockItems = new ArrayList<>();
+        List<StockItem> stockItems = getAllStockItems();
+        Integer globalThreshold = getGlobalLowStockThreshold();
+
+        for (StockItem stockItem : stockItems) {
+            int threshold = Utils.resolveLowStockThreshold(stockItem.getReceivedQuantity(), globalThreshold);
+            if (stockItem.getQuantity() <= threshold) {
+                lowStockItems.add(stockItem);
+            }
+        }
+        return lowStockItems;
+    }
+
     public String getLowStockItems() {
         StringBuilder lowStockReport = new StringBuilder();
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor checkCursor = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_STOCK, null);
-
-        if (checkCursor.moveToFirst() && checkCursor.getInt(0) == 0) {
-            checkCursor.close();
+        List<StockItem> stockItems = getAllStockItems();
+        if (stockItems.isEmpty()) {
             return "The stock database is currently empty.\n";
         }
-        checkCursor.close();
 
-        Cursor cursor = db.query(TABLE_STOCK, null, COL_QUANTITY + " < ?",
-                new String[]{"50"}, null, null, COL_QUANTITY + " ASC");
+        List<StockItem> lowStockItems = getLowStockStockItems();
+        Integer globalThreshold = getGlobalLowStockThreshold();
 
-        if (cursor.moveToFirst()) {
+        if (!lowStockItems.isEmpty()) {
             lowStockReport.append("Low Stock Alert\n");
-            do {
-                String itemName = cursor.getString(cursor.getColumnIndexOrThrow(COL_ITEM_NAME));
-                String itemSize = cursor.getString(cursor.getColumnIndexOrThrow(COL_SIZE));
-                int quantity = cursor.getInt(cursor.getColumnIndexOrThrow(COL_QUANTITY));
-                lowStockReport.append("- ").append(itemName)
-                        .append(" (").append(itemSize).append(") - ")
-                        .append(quantity).append(" left\n");
-            } while (cursor.moveToNext());
+            if (globalThreshold != null && globalThreshold > 0) {
+                lowStockReport.append("Global threshold: ").append(globalThreshold).append("\n");
+            } else {
+                lowStockReport.append("Fallback threshold: 10% of received stock\n");
+            }
+
+            for (StockItem item : lowStockItems) {
+                int threshold = Utils.resolveLowStockThreshold(item.getReceivedQuantity(), globalThreshold);
+                lowStockReport.append("- ").append(item.getItemName())
+                        .append(" (").append(item.getItemSize()).append(") - ")
+                        .append(item.getQuantity()).append(" left")
+                        .append(" [threshold ").append(threshold).append("]\n");
+            }
         } else {
             lowStockReport.append("All items are sufficiently stocked.\n");
         }
-        cursor.close();
         return lowStockReport.toString();
     }
 
