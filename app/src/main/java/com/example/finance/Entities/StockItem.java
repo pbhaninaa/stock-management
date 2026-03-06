@@ -32,12 +32,14 @@ public class StockItem {
 
     public String getItemName() {
         return itemName;
-    } public void setItemSize(int id) {
-        this.id = id;
     }
 
     public String getItemSize() {
         return itemSize;
+    }
+
+    public void setItemSize(String itemSize) {
+        this.itemSize = itemSize;
     }
 
     public void setItemName(String itemName) {

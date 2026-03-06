@@ -1,10 +1,11 @@
 <resources>
-    <string name="app_name">Jays Tavern</string>
+    <string name="app_name">Stock taking.</string>
 
     <string name="smtp_host">smtp.gmail.com</string>
-    <string name="email_password">JaysTavern@12</string>
-    <string name="email_sender">jaystarven@gmail.com</string>
-    <string name="app_email_password">sbyb dcfs przw aell</string>
+    <string name="email_password"></string>
+    <string name="email_sender"></string>
+    <string name="app_email_password"></string>
+    <string name="report_email_recipient"></string>
     <string name="smtp_port">587</string>
 
     <string name="title_activity_management">ManagementActivity</string>

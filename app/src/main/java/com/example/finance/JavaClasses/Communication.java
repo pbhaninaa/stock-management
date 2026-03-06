@@ -20,27 +20,32 @@ import java.util.concurrent.Executors;
 
 public class Communication {
 
-    // SMTP email method
-    public static void sendEmail(Context context, String subject, String body, EmailCallback callback) {
-        // SMTP server settings
-        String host = "smtp.gmail.com";
-        String fromEmail = "jaystarven@gmail.com";
-        String password = "sbyb dcfs przw aell";
-        int port = 587;
+    public static void sendEmail(Context context, String subject,
+                                 String body, EmailCallback callback) {
+        String host = context.getString(R.string.smtp_host).trim();
+        String fromEmail = context.getString(R.string.email_sender).trim();
+        String password = context.getString(R.string.app_email_password).trim();
+        String recipient = context.getString(R.string.report_email_recipient).trim();
+        int port = Integer.parseInt(context.getString(R.string.smtp_port).trim());
 
-        // Set up properties for the SMTP connection
+        if (host.isEmpty() || fromEmail.isEmpty() || password.isEmpty() || recipient.isEmpty()) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                Toast.makeText(context, "Email reporting is not configured.", Toast.LENGTH_SHORT).show();
+                callback.onEmailSent(false);
+            });
+            return;
+        }
+
         Properties properties = new Properties();
         properties.put("mail.smtp.host", host);
         properties.put("mail.smtp.port", port);
         properties.put("mail.smtp.auth", "true");
-        properties.put("mail.smtp.starttls.enable", "true");  // Use STARTTLS encryption
+        properties.put("mail.smtp.starttls.enable", "true");
 
-        // Use ExecutorService to run the email sending process on a background thread
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         executorService.submit(() -> {
             boolean success = false;
             try {
-                // Create a session with the provided credentials
                 Session session = Session.getInstance(properties, new Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
@@ -48,39 +53,36 @@ public class Communication {
                     }
                 });
 
-                // Compose the email message
                 MimeMessage message = new MimeMessage(session);
                 message.setFrom(new InternetAddress(fromEmail));
-                message.addRecipient(Message.RecipientType.TO, new InternetAddress("jaystarven@gmail.com"));
+                message.addRecipient(Message.RecipientType.TO,
+                        new InternetAddress(recipient));
                 message.setSubject(subject);
                 message.setText(body);
 
-                // Send the email
                 Transport.send(message);
                 success = true;
 
-                // Show success message on the main thread
                 new Handler(Looper.getMainLooper()).post(() ->
-                        Toast.makeText(context, "Email sent successfully!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Email sent successfully!",
+                                Toast.LENGTH_SHORT).show()
 
                 );
 
             } catch (MessagingException e) {
                 e.printStackTrace();
 
-                // Show error message on the main thread
                 new Handler(Looper.getMainLooper()).post(() ->
-                        Toast.makeText(context, "Failed to send email. Please try again.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Failed to send email. Please try again.",
+                                Toast.LENGTH_SHORT).show()
                 );
             }
 
-            // Notify callback about the result
             boolean finalSuccess = success;
             new Handler(Looper.getMainLooper()).post(() -> callback.onEmailSent(finalSuccess));
         });
     }
 
-    // Interface for email callback
     public interface EmailCallback {
         void onEmailSent(boolean success);
     }

@@ -1,600 +1,562 @@
 package com.example.finance;
 
-import static com.example.finance.MainActivity.drinks;
-import static com.example.finance.MainActivity.sizes;
-
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.app.AlertDialog;
+import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import okhttp3.internal.Util;
-
-import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.view.View;
-import android.widget.Button;
-//
-import java.util.Date;
-import java.text.SimpleDateFormat;
-
-import android.annotation.SuppressLint;
-import android.content.ContentValues;
-import android.content.Context;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
-import android.util.Log;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import java.util.Date;
-import java.text.SimpleDateFormat;
-import java.util.Locale;
-
-import android.annotation.SuppressLint;
-import android.content.ContentValues;
-import android.content.Context;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
-import android.util.Log;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import android.text.InputType;
-import android.graphics.Typeface; // Add this import
-
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
 
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
-import android.view.View;
-import android.widget.LinearLayout;import android.content.Intent;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class ManagementActivity extends AppCompatActivity {
     private StockDatabaseHelper dbHelper;
+    private User currentUser;
 
-    private ConstraintLayout StockTaking, Dashboard;
-    private LinearLayout ProgressTab;
-    private Button Save;
-    String currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+    private ConstraintLayout dashboard;
+    private LinearLayout stockTaking;
+    private LinearLayout progressTab;
+    private Button saveButton;
+    private Button createButton;
+    private ImageView addItemButton;
+    private ImageView addSizeButton;
+    private TextView currentUserLabel;
+    private Spinner categorySpinner;
+
+    private final String currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        dbHelper = new StockDatabaseHelper(this);
         setContentView(R.layout.activity_management);
-        initialiseViews();
-        handleOnclickListeners();
-        adaptors();
 
+        dbHelper = new StockDatabaseHelper(this);
+        dbHelper.seedDefaultSelections();
 
+        if (!loadActiveUser()) {
+            return;
+        }
 
-        EditText CostPrice = findViewById(R.id.cost_price);
-        EditText SellingPrice = findViewById(R.id.selling_price);
-        EditText Category = findViewById(R.id.category);
-
-        CostPrice.addTextChangedListener(new CurrencyTextWatcher(CostPrice));
-        SellingPrice.addTextChangedListener(new CurrencyTextWatcher(SellingPrice));
-        ProgressTab.setVisibility(dbHelper.getTotalSales(currentDate) > 0 ? View.VISIBLE : View.GONE);
-        Utils.setCaps(Category);
-        populateTextViews();
-
+        initializeViews();
+        setupFormEnhancements();
+        setupCategoryFilter();
+        refreshUi();
     }
-//    @Override
-//    public void onBackPressed() {
-//        // Optionally, display a confirmation dialog before going back
-//        Intent i = new Intent(this, MainActivity.class);
-//        startActivity(i);
-//    }
 
-
-    public void adaptors() {
-        // Get list of sizes from the database
-        List<ItemSizes> sizesList = dbHelper.getAllItemSizes();
-        List<String> itemSizes = new ArrayList<>();
-
-        for (ItemSizes item : sizesList) {
-            itemSizes.add(item.getItemSize()); // Ensure this retrieves sizes only
+    private boolean loadActiveUser() {
+        if (!Utils.hasActiveSession(this)) {
+            redirectToLogin();
+            return false;
         }
 
-        // Set up adapter for the sizes spinner
-        Spinner spinner1 = findViewById(R.id.size);
-        ArrayAdapter<String> adapter1 = new ArrayAdapter<>(ManagementActivity.this, android.R.layout.simple_spinner_item, itemSizes);
-        adapter1.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner1.setAdapter(adapter1);
-
-        // Get list of item names from the database
-        List<Items> itemsList = dbHelper.getAllItems();
-        List<String> itemNames = new ArrayList<>();
-
-        for (Items item : itemsList) {
-            itemNames.add(item.getItemName());
+        currentUser = dbHelper.getUserById(Utils.getSessionUserId(this));
+        if (currentUser == null || !currentUser.isActive()) {
+            Utils.clearSession(this);
+            redirectToLogin();
+            return false;
         }
+        return true;
+    }
 
-        // Set up adapter for the item names spinner
-        Spinner spinner = findViewById(R.id.item_name);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(ManagementActivity.this, android.R.layout.simple_spinner_item, itemNames);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
+    private void initializeViews() {
+        dashboard = findViewById(R.id.dashboard);
+        stockTaking = findViewById(R.id.stock_taking);
+        progressTab = findViewById(R.id.progress_tab);
+        saveButton = findViewById(R.id.submit_button);
+        createButton = findViewById(R.id.create_button);
+        addItemButton = findViewById(R.id.add_item_button);
+        addSizeButton = findViewById(R.id.add_size_button);
+        currentUserLabel = findViewById(R.id.current_user_label);
+        categorySpinner = findViewById(R.id.item_category_spinner);
 
-        Spinner categorySpinner = findViewById(R.id.item_category_spinner);
-        List<String> categories = dbHelper.getCategories();
-        ArrayAdapter<String> adapter2 = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
-        adapter2.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        categorySpinner.setAdapter(adapter2);
+        saveButton.setOnClickListener(v -> handleSave(v));
+    }
 
-// Set a listener for item selection
+    private void setupFormEnhancements() {
+        EditText costPrice = findViewById(R.id.cost_price);
+        EditText sellingPrice = findViewById(R.id.selling_price);
+        EditText category = findViewById(R.id.category);
+        costPrice.addTextChangedListener(new CurrencyTextWatcher(costPrice));
+        sellingPrice.addTextChangedListener(new CurrencyTextWatcher(sellingPrice));
+        Utils.setCaps(category);
+    }
+
+    private void setupCategoryFilter() {
         categorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-                // Get the selected category
-                String selectedCategory = parentView.getItemAtPosition(position).toString();
-
-                // Call fetchAndDisplayItems with the selected category
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String selectedCategory = parent.getItemAtPosition(position).toString();
                 fetchAndDisplayItems(selectedCategory);
             }
 
             @Override
-            public void onNothingSelected(AdapterView<?> parentView) {
-                // Optionally, handle the case where no item is selected
+            public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-
-// Default call to fetch all items
-        fetchAndDisplayItems("All");
-
-
     }
 
-    private void handleOnclickListeners() {
-        Save.setOnClickListener(v -> handleSave());
+    private void refreshUi() {
+        currentUserLabel.setText(
+                currentUser.getFullName() + " • " + currentUser.getRole() + " • " + Utils.getTavernName(this));
+
+        createButton.setVisibility(Utils.canEditInventory(this) ? View.VISIBLE : View.GONE);
+        saveButton.setVisibility(Utils.canEditInventory(this) ? View.VISIBLE : View.GONE);
+        addItemButton.setVisibility(Utils.canEditInventory(this) ? View.VISIBLE : View.GONE);
+        addSizeButton.setVisibility(Utils.canEditInventory(this) ? View.VISIBLE : View.GONE);
+
+        if (!Utils.canEditInventory(this) && stockTaking.getVisibility() == View.VISIBLE) {
+            stockTaking.setVisibility(View.GONE);
+            dashboard.setVisibility(View.VISIBLE);
+        }
+
+        adaptors();
+        populateTextViews();
+        progressTab.setVisibility(dbHelper.getTotalSales(currentDate) > 0 ? View.VISIBLE : View.GONE);
+        fetchAndDisplayItems("All");
+    }
+
+    public void adaptors() {
+        List<String> itemNames = new ArrayList<>();
+        for (Items item : dbHelper.getAllItems()) {
+            itemNames.add(item.getItemName());
+        }
+
+        List<String> itemSizes = new ArrayList<>();
+        for (ItemSizes item : dbHelper.getAllItemSizes()) {
+            itemSizes.add(item.getItemSize());
+        }
+
+        Spinner itemNameSpinner = findViewById(R.id.item_name);
+        Spinner sizeSpinner = findViewById(R.id.size);
+
+        ArrayAdapter<String> itemAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, itemNames);
+        itemAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        itemNameSpinner.setAdapter(itemAdapter);
+
+        ArrayAdapter<String> sizeAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, itemSizes);
+        sizeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        sizeSpinner.setAdapter(sizeAdapter);
+
+        ArrayAdapter<String> categoryAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, dbHelper.getCategories());
+        categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        categorySpinner.setAdapter(categoryAdapter);
     }
 
     public void exitApp(View view) {
-        MainActivity.sendReportFromOtherActivity(this, true);
-
-
+        finishAffinity();
     }
 
     public void menu(View view) {
+        List<String> actions = new ArrayList<>();
+        if (Utils.canManageUsers(this)) {
+            actions.add("Manage users");
+            actions.add("Edit tavern details");
+        }
+        if (Utils.canViewReports(this)) {
+            actions.add("Send full report");
+        }
+        if (Utils.canResetDatabase(this)) {
+            actions.add("Reset sales and stock");
+        }
+        actions.add("Logout");
 
-        setupMenuButton(view);
+        String[] items = actions.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("Choose action")
+                .setItems(items, (dialog, which) -> handleMenuAction(items[which]))
+                .show();
+    }
+
+    private void handleMenuAction(String action) {
+        switch (action) {
+            case "Manage users":
+                startActivity(new Intent(this, UserManagementActivity.class));
+                break;
+            case "Edit tavern details":
+                showTavernDetailsDialog();
+                break;
+            case "Send full report":
+                sendFullReport();
+                break;
+            case "Reset sales and stock":
+                confirmDatabaseReset();
+                break;
+            case "Logout":
+                Utils.clearSession(this);
+                redirectToLogin();
+                break;
+            default:
+                break;
+        }
     }
 
     public void addItem(View view) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        if (!Utils.canEditInventory(this)) {
+            Utils.showToast(this, "You are not allowed to add stock items.");
+            return;
+        }
 
-        TextView title = new TextView(this);
-        title.setText("Add item name");
-        title.setTextSize(20);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
-        builder.setCustomTitle(title);
-
-        // Inflate the layout for the dialog
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_sell_item, null);
-        builder.setView(dialogView);
-
-        // Initialize views correctly using dialogView
-        EditText item = dialogView.findViewById(R.id.dialog_quantity);
-        Utils.setCaps(item);
-        item.setGravity(Gravity.CENTER);
-        item.setInputType(InputType.TYPE_CLASS_TEXT);
-        item.setHint("Enter item");
-
-        Button addButton = dialogView.findViewById(R.id.dialog_sell_button);
-        addButton.setText("Add");
-
-        // Create and show the dialog
-        AlertDialog dialog = builder.create();
-        dialog.show();
-
-        // Set the Sell button's click listener
-        addButton.setOnClickListener(v -> {
-            // Get the item text from input
-            String itemText = item.getText().toString();
-            if (!itemText.isEmpty()) {
-                // Add the item to your database or list
-                dbHelper.addItem(itemText);
-                adaptors(); // Refresh the adapter if needed
-                Spinner spinner = findViewById(R.id.item_name);
-                spinner.performClick(); // This will open the dropdown
-
-
-
-                // Close the dialog
-                dialog.dismiss();  // Close the dialog when "Add" is clicked
-            } else {
-                Utils.showToast(this, "Enter Item");
-            }
+        showTextEntryDialog("Add item name", "Enter item", enteredValue -> {
+            dbHelper.addItem(enteredValue);
+            adaptors();
         });
     }
 
     public void addItemSize(View view) {
+        if (!Utils.canEditInventory(this)) {
+            Utils.showToast(this, "You are not allowed to add item sizes.");
+            return;
+        }
+
+        showTextEntryDialog("Add item size", "Enter item size (e.g. 660ml)", enteredValue -> {
+            if (!enteredValue.matches("^\\d+ml$")) {
+                Utils.showToast(this, "Invalid size. Use format like 660ml.");
+                return;
+            }
+            dbHelper.addItemSize(enteredValue);
+            adaptors();
+        });
+    }
+
+    private void showTextEntryDialog(String titleText, String hint, ValueConsumer consumer) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
-
         TextView title = new TextView(this);
-        title.setText("Add item size");
+        title.setText(titleText);
         title.setTextSize(20);
         title.setTypeface(null, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         builder.setCustomTitle(title);
 
-        // Inflate the layout for the dialog
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_sell_item, null);
         builder.setView(dialogView);
 
-        // Initialize views correctly using dialogView
-        EditText item = dialogView.findViewById(R.id.dialog_quantity);
-        item.setGravity(Gravity.CENTER);
-        item.setInputType(InputType.TYPE_CLASS_TEXT);
-        item.setHint("Enter item size (e.g., 660ml)");
+        EditText input = dialogView.findViewById(R.id.dialog_quantity);
+        Button actionButton = dialogView.findViewById(R.id.dialog_sell_button);
+        input.setGravity(Gravity.CENTER);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setHint(hint);
+        actionButton.setText("Save");
 
-        Button addButton = dialogView.findViewById(R.id.dialog_sell_button);
-        addButton.setText("Add");
-
-        // Create and show the dialog
         AlertDialog dialog = builder.create();
         dialog.show();
-
-        // Set the Add button's click listener
-        addButton.setOnClickListener(v -> {
-            String itemText = item.getText().toString().trim();
-
-            // Regular expression to allow only sizes like "660ml", "750ml", etc.
-            if (itemText.matches("^\\d+ml$")) {
-                dbHelper.addItemSize(itemText); // Add valid size to the database
-                adaptors(); // Refresh the adapter if needed
-                Spinner spinner = findViewById(R.id.size);
-                spinner.performClick(); // This will open the dropdown
-
-
-                dialog.dismiss(); // Close the dialog
-            } else {
-                Utils.showToast(this, "Invalid size! Use format like '660ml'.");
+        actionButton.setOnClickListener(v -> {
+            String value = input.getText().toString().trim();
+            if (value.isEmpty()) {
+                Utils.showToast(this, "Enter a value first.");
+                return;
             }
+            consumer.accept(value);
+            dialog.dismiss();
         });
     }
 
-    public void setupMenuButton(View menuButton) {
-        // Set up long press listener on the Menu Button
-        menuButton.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                // Show confirmation dialog
-                new AlertDialog.Builder(ManagementActivity.this)
-                        .setTitle("Delete Database")
-                        .setMessage("Are you sure you want to delete the entire stock database?")
-                        .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                // Call the method to clear the stock table
-                                showConfirmationDialog(null, true);
-                            }
-                        })
-                        .setNegativeButton("No", null)
-                        .setCancelable(true)
-                        .show();
-                return true; // Return true to indicate the event was handled
-            }
-        });
-    }
+    public void handleSave(View view) {
+        if (!Utils.canEditInventory(this)) {
+            Utils.showToast(this, "You are not allowed to edit inventory.");
+            return;
+        }
 
-    private void handleSave() {
+        Spinner itemNameSpinner = findViewById(R.id.item_name);
+        Spinner itemSizeSpinner = findViewById(R.id.size);
+        if (itemNameSpinner.getSelectedItem() == null || itemSizeSpinner.getSelectedItem() == null) {
+            Utils.showToast(this, "Add the item name and size first.");
+            return;
+        }
 
-        // Get the values from the EditText fields
-        String itemName = ((Spinner) findViewById(R.id.item_name)).getSelectedItem().toString().trim();
+        String itemName = itemNameSpinner.getSelectedItem().toString().trim();
+        String itemSize = itemSizeSpinner.getSelectedItem().toString().trim();
         String costPriceStr = ((EditText) findViewById(R.id.cost_price)).getText().toString().trim();
         String sellingPriceStr = ((EditText) findViewById(R.id.selling_price)).getText().toString().trim();
         String quantityStr = ((EditText) findViewById(R.id.quantity)).getText().toString().trim();
         String description = ((EditText) findViewById(R.id.description)).getText().toString().trim();
         String category = ((EditText) findViewById(R.id.category)).getText().toString().trim();
-        String itemSize = ((Spinner) findViewById(R.id.size)).getSelectedItem().toString().trim();
 
-        // Validate inputs
-        if (itemName.isEmpty() || itemSize.isEmpty() || category.isEmpty() || costPriceStr.isEmpty() || sellingPriceStr.isEmpty() || quantityStr.isEmpty()) {
-            // Show a validation error message (e.g., using Toast)
-            Toast.makeText(this, "All fields must be filled out.", Toast.LENGTH_SHORT).show();
-            return; // Exit the method if validation fails
+        if (itemName.isEmpty() || itemSize.isEmpty() || category.isEmpty()
+                || costPriceStr.isEmpty() || sellingPriceStr.isEmpty() || quantityStr.isEmpty()) {
+            Utils.showToast(this, "All fields must be filled out.");
+            return;
         }
 
-        // Convert strings to appropriate data types
-        double costPrice = 0.0, sellingPrice = 0.0;
-        int quantity = 0;
+        if ("Select Item".equals(itemName) || "Select Item size".equals(itemSize)) {
+            Utils.showToast(this, "Please select a valid item and item size.");
+            return;
+        }
 
         try {
-            // Replace commas with periods for locale-based decimal separators
-            costPriceStr = costPriceStr.replace(",", ".");
-            sellingPriceStr = sellingPriceStr.replace(",", ".");
+            double costPrice = Double.parseDouble(costPriceStr.replace(",", "."));
+            double sellingPrice = Double.parseDouble(sellingPriceStr.replace(",", "."));
+            int quantity = Integer.parseInt(quantityStr);
 
-            // Parse the values
-            costPrice = Double.parseDouble(costPriceStr);
-            sellingPrice = Double.parseDouble(sellingPriceStr);
-            quantity = Integer.parseInt(quantityStr);
+            if (!dbHelper.isStockItemExists(itemName, itemSize)) {
+                dbHelper.addStockItem(itemName, costPrice, sellingPrice, quantity, description, category, itemSize);
+            } else {
+                int currentQuantity = dbHelper.getCurrentQuantity(itemName, itemSize);
+                dbHelper.updateItemQuantity(itemName, itemSize, costPrice, sellingPrice, currentQuantity + quantity);
+            }
+
+            clearStockForm();
+            adaptors();
+            fetchAndDisplayItems("All");
+            Utils.success(this, "Stock saved successfully.");
         } catch (NumberFormatException e) {
-            // Show a number format error message
-            Toast.makeText(this, "Please enter valid numbers for price and quantity.", Toast.LENGTH_SHORT).show();
-            return; // Exit the method if the conversion fails
+            Utils.showToast(this, "Please enter valid numbers for price and quantity.");
         }
-
-        if (!dbHelper.isStockItemExists(itemName, itemSize)) {
-            System.out.println("Adding Stock Item:");
-            System.out.println("Item Name: " + itemName);
-            System.out.println("Cost Price: " + costPrice);
-            System.out.println("Selling Price: " + sellingPrice);
-            System.out.println("Quantity: " + quantity);
-            System.out.println("Description: " + description);
-            System.out.println("Category: " + category);
-            System.out.println("Item Size: " + itemSize);
-            dbHelper.addStockItem(itemName, costPrice, sellingPrice, quantity, description, category, itemSize);
-            Toast.makeText(this, "Item saved successfully!", Toast.LENGTH_SHORT).show();
-
-            // Clear the fields if needed (optional)
-            ((EditText) findViewById(R.id.cost_price)).setText("");
-            ((EditText) findViewById(R.id.selling_price)).setText("");
-            ((EditText) findViewById(R.id.quantity)).setText("");
-            ((EditText) findViewById(R.id.description)).setText("");
-            ((EditText) findViewById(R.id.category)).setText("");
-        } else {
-            int cQuantity = dbHelper.getCurrentQuantity(itemName, itemSize);
-            dbHelper.updateItemQuantity(itemName, itemSize, costPrice, sellingPrice, Integer.parseInt(quantityStr) + cQuantity);
-        }
-
     }
 
-    private void initialiseViews() {
-        StockTaking = findViewById(R.id.stock_taking);
-        Dashboard = findViewById(R.id.dashboard);
-        Save = findViewById(R.id.submit_button);
-        ProgressTab = findViewById(R.id.progress_tab);
-        fetchAndDisplayItems("All");
+    private void clearStockForm() {
+        ((EditText) findViewById(R.id.cost_price)).setText("");
+        ((EditText) findViewById(R.id.selling_price)).setText("");
+        ((EditText) findViewById(R.id.quantity)).setText("");
+        ((EditText) findViewById(R.id.description)).setText("");
+        ((EditText) findViewById(R.id.category)).setText("");
     }
 
     public void ChangeLayouts(View view) {
-        showConfirmationDialog(view, false);
+        if (!Utils.canEditInventory(this)) {
+            Utils.showToast(this, "Only Owner and Manager can manage stock.");
+            return;
+        }
+        dashboard.setVisibility(View.GONE);
+        stockTaking.setVisibility(View.VISIBLE);
     }
 
     public void ChangeLayout(View view) {
-        adaptors();
+        stockTaking.setVisibility(View.GONE);
+        dashboard.setVisibility(View.VISIBLE);
         fetchAndDisplayItems("All");
-        StockTaking.setVisibility(StockTaking.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-        Dashboard.setVisibility(Dashboard.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-
+        populateTextViews();
     }
 
     private void fetchAndDisplayItems(String category) {
-        // Fetch all the items from the database
-        List<StockItem> allItems = dbHelper.getStockItemsByCategory(category);
-
-        // Get reference to the TableLayout where the items will be displayed
         TableLayout tableLayout = findViewById(R.id.items_table);
-
-        // Clear any previous rows
         tableLayout.removeAllViews();
 
-        // If the list of items is not empty
-        if (allItems != null && !allItems.isEmpty()) {
-            // Make the TableLayout visible
-            tableLayout.setVisibility(View.VISIBLE);
+        List<StockItem> allItems = dbHelper.getStockItemsByCategory(category);
+        if (allItems == null || allItems.isEmpty()) {
+            TextView emptyView = new TextView(this);
+            emptyView.setText(Utils.canEditInventory(this)
+                    ? "No stock added yet. Use Manage Stock to add your first item."
+                    : "No stock is currently available.");
+            emptyView.setPadding(8, 8, 8, 8);
+            tableLayout.addView(emptyView);
+            return;
+        }
 
-            // Iterate through the list of items and create a row for each item
-            for (StockItem item : allItems) {
-                // Create a new TableRow for each item
-                TableRow tableRow = new TableRow(this);
+        for (StockItem item : allItems) {
+            TableRow row = new TableRow(this);
+            row.addView(createItemCell(item.getItemName(), 1f, true, v -> showSellDialog(item)));
+            row.addView(createItemCell(item.getItemSize(), 1f, false, null));
+            row.addView(createItemCell("R" + item.getSellingPrice(), 1f, false, null));
 
-                // Create TextViews for each column (Item Name, Cost Price, Selling Price, Quantity)
-                TextView itemName = new TextView(this);
-                itemName.setText(item.getItemName());
-                itemName.setPadding(8, 8, 8, 8);
-                itemName.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1)); // Set weight
-                itemName.setGravity(Gravity.LEFT);
-                itemName.setOnClickListener(v -> showSellDialog(item));  // Pass the item here
-                itemName.setTextColor(ContextCompat.getColor(this, R.color.text_color));
-
-
-                TextView costPrice = new TextView(this);
-                costPrice.setText(String.valueOf(item.getItemSize()));
-                costPrice.setPadding(8, 8, 8, 8);
-                costPrice.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1)); // Set weight
-                costPrice.setGravity(Gravity.LEFT);
-                costPrice.setTextColor(ContextCompat.getColor(this, R.color.text_color));
-
-
-                TextView sellingPrice = new TextView(this);
-                sellingPrice.setText("R" + String.valueOf(item.getSellingPrice()));
-                sellingPrice.setPadding(8, 8, 8, 8);
-                sellingPrice.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1)); // Set weight
-                sellingPrice.setGravity(Gravity.LEFT);
-                sellingPrice.setTextColor(ContextCompat.getColor(this, R.color.text_color));
-
-                TextView quantity = new TextView(this);
-                quantity.setText(String.valueOf(item.getQuantity()));
-                quantity.setPadding(8, 8, 8, 8);
-                quantity.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1)); // Set weight
-                Utils.setStockAvailabilityColor(quantity, item.getQuantity());
-                quantity.setGravity(Gravity.LEFT);
-                quantity.setTextColor(ContextCompat.getColor(this, R.color.text_color));
-
-                // Add the TextViews to the TableRow
-                tableRow.addView(itemName);
-                tableRow.addView(costPrice);
-                tableRow.addView(sellingPrice);
-                tableRow.addView(quantity);
-
-                // Add the TableRow to the TableLayout
-                tableLayout.addView(tableRow);
-            }
-        } else {
-            Dashboard.setVisibility(View.GONE);
-            StockTaking.setVisibility(View.VISIBLE);
+            TextView quantityView = createItemCell(String.valueOf(item.getQuantity()), 1f, false, null);
+            Utils.setStockAvailabilityColor(quantityView, item.getQuantity());
+            row.addView(quantityView);
+            tableLayout.addView(row);
         }
     }
 
+    private TextView createItemCell(String text, float weight, boolean clickable, View.OnClickListener listener) {
+        TextView textView = new TextView(this);
+        textView.setText(text);
+        textView.setPadding(8, 8, 8, 8);
+        textView.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, weight));
+        textView.setGravity(Gravity.START);
+        textView.setTextColor(ContextCompat.getColor(this, R.color.text_color));
+        if (clickable && listener != null) {
+            textView.setOnClickListener(listener);
+        }
+        return textView;
+    }
+
     private void showSellDialog(StockItem item) {
-        // Create a new AlertDialog
+        if (!Utils.canSell(this)) {
+            Utils.showToast(this, "You are not allowed to sell stock.");
+            return;
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(item.getItemName() + " " + item.getItemSize());
-
-        // Inflate the layout for the dialog
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_sell_item, null);
         builder.setView(dialogView);
 
-        // Initialize views correctly using dialogView
         EditText quantityEditText = dialogView.findViewById(R.id.dialog_quantity);
         Button sellButton = dialogView.findViewById(R.id.dialog_sell_button);
 
-
-        // Create and show the dialog
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Set the Sell button's click listener
         sellButton.setOnClickListener(v -> {
-            // Get the quantity from input
-            String quantityText = quantityEditText.getText().toString();
-
-            if (!quantityText.isEmpty()) {
-                int quantityToSell = Integer.parseInt(quantityText);
-                if (quantityToSell <= item.getQuantity()) {
-                    String itemName = item.getItemName();
-                    String itemSize = item.getItemSize();
-                    int currentQuantity = item.getQuantity();
-                    double costPrice = item.getCostPrice();
-                    double sellingPrice = item.getSellingPrice();
-                    String description = item.getDescription();
-                    String category = item.getCategory();
-
-                    dbHelper.updateItemQuantity(itemName, itemSize, costPrice, sellingPrice, currentQuantity - quantityToSell);
-
-                    dbHelper.saveSale(itemName, costPrice, sellingPrice * quantityToSell, quantityToSell, description, itemSize, category);
-
-                    Toast.makeText(this, "Item Sold!", Toast.LENGTH_SHORT).show();
-                    ProgressTab.setVisibility(dbHelper.getTotalSales(currentDate) > 0 ? View.VISIBLE : View.GONE);
-
-
-                    populateTextViews();
-
-                    // Close the dialog
-                    dialog.dismiss();
-
-                    // Refresh the table to reflect the updated item
-                    fetchAndDisplayItems("All");
-                } else {
-                    Toast.makeText(this, "Not enough stock to sell.", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(this, "Please provide a valid quantity.", Toast.LENGTH_SHORT).show();
+            String quantityText = quantityEditText.getText().toString().trim();
+            if (quantityText.isEmpty()) {
+                Utils.showToast(this, "Please provide a valid quantity.");
+                return;
             }
+
+            int quantityToSell;
+            try {
+                quantityToSell = Integer.parseInt(quantityText);
+            } catch (NumberFormatException e) {
+                Utils.showToast(this, "Please enter a valid number.");
+                return;
+            }
+
+            if (quantityToSell <= 0) {
+                Utils.showToast(this, "Quantity must be greater than zero.");
+                return;
+            }
+
+            if (quantityToSell > item.getQuantity()) {
+                Utils.showToast(this, "Not enough stock to sell.");
+                return;
+            }
+
+            dbHelper.updateItemQuantity(
+                    item.getItemName(),
+                    item.getItemSize(),
+                    item.getCostPrice(),
+                    item.getSellingPrice(),
+                    item.getQuantity() - quantityToSell
+            );
+            dbHelper.saveSale(
+                    item.getItemName(),
+                    item.getCostPrice(),
+                    item.getSellingPrice() * quantityToSell,
+                    quantityToSell,
+                    item.getDescription(),
+                    item.getItemSize(),
+                    item.getCategory()
+            );
+
+            Utils.success(this, "Item sold.");
+            dialog.dismiss();
+            refreshUi();
         });
     }
 
     private void populateTextViews() {
-        // Initialize TextViews
         TextView mostSoldTextView = findViewById(R.id.most_sold);
         TextView totalAmountTextView = findViewById(R.id.total_amount_for_the_day);
 
-
-        // Fetch values from database functions
         String mostSoldItem = dbHelper.getMostAppearingItemWithSizeForDate(currentDate);
-        double totalAmount = dbHelper.getSumOfSellingPrice(currentDate);  // Assuming it returns a double
-        int totalSale = dbHelper.getTotalSales(currentDate);  // Assuming it returns an int
+        double totalAmount = dbHelper.getSumOfSellingPrice(currentDate);
+        int totalSales = dbHelper.getTotalSales(currentDate);
 
-        // Convert double to String with 2 decimal places
-        String totalAmountString = String.format(Locale.getDefault(), "%.2f", totalAmount);
-
-        // Populate TextViews with the retrieved values
         mostSoldTextView.setText(mostSoldItem != null
-                ? "Most Sold :" + mostSoldItem + "\nItems sold :" + totalSale
+                ? "Most Sold: " + mostSoldItem + "\nItems sold: " + totalSales
                 : "Most Sold\nNo Data");
-
-        totalAmountTextView.setText("Money Made\nR" + totalAmountString); // Display total amount formatted
+        totalAmountTextView.setText("Money Made\nR" + String.format(Locale.getDefault(), "%.2f", totalAmount));
     }
 
-    private void showConfirmationDialog(View view, boolean deleteDb) {
-        // Create a new AlertDialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    private void sendFullReport() {
+        if (!Utils.canViewReports(this)) {
+            Utils.showToast(this, "You are not allowed to send reports.");
+            return;
+        }
 
-        // Set the title and center it
-        TextView title = new TextView(this);
-        title.setText("Login");
-        title.setTextSize(20);
-        title.setTypeface(null, Typeface.BOLD); // Ensure Typeface is imported
-        title.setGravity(Gravity.CENTER);
-        builder.setCustomTitle(title);
+        double totalAmount = dbHelper.getSumOfSellingPrice(currentDate);
+        String mostSoldItem = dbHelper.getMostAppearingItemWithSizeForDate(currentDate);
+        String salesReport = dbHelper.getSalesReportForDate(currentDate);
+        String lowStockItems = dbHelper.getLowStockItems();
+        String tavernName = Utils.getTavernName(this);
 
-        // Inflate the layout for the dialog
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_sell_item, null);
-        builder.setView(dialogView);
+        String subject = tavernName + " Full Report for " + currentDate;
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("Daily sales report for ").append(tavernName).append("\n\n")
+                .append("Generated by: ").append(currentUser.getFullName()).append(" (").append(currentUser.getRole()).append(")\n")
+                .append("Total Sales Amount: R").append(totalAmount).append("\n")
+                .append("Best Selling Item: ").append(mostSoldItem != null ? mostSoldItem : "No sales today").append("\n\n")
+                .append(lowStockItems).append("\n")
+                .append(salesReport).append("\n")
+                .append("Generated at ").append(Utils.getCurrentDateTime()).append(".\n");
 
-        // Initialize views using dialogView
-        EditText passwordEditText = dialogView.findViewById(R.id.dialog_quantity); // Using it as password input
-        Button confirmButton = dialogView.findViewById(R.id.dialog_sell_button); // Change button name
-
-        // Update hint text for the password field
-        passwordEditText.setHint("Enter password");
-        passwordEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD); // Hide input
-        passwordEditText.setGravity(Gravity.CENTER);
-
-        // Update button text
-        confirmButton.setText("Confirm");
-
-        // Create the dialog
-        AlertDialog dialog = builder.create();
-
-        // Set the Confirm button's click listener
-        confirmButton.setOnClickListener(v -> {
-            if (deleteDb) {
-                StockDatabaseHelper dbHelper = new StockDatabaseHelper(ManagementActivity.this);
-                dbHelper.clearStockTable();
-                ChangeLayouts(null);
-            }
-            // Get entered password
-            String enteredPassword = passwordEditText.getText().toString();
-            String correctPassword = getReversedDate(); // Get the reversed date as the correct password
-
-            // Dismiss the dialog
-            dialog.dismiss();
-
-            if (enteredPassword.equals(correctPassword)) {
-                // Toggle visibility of StockTaking and Dashboard
-                StockTaking.setVisibility(StockTaking.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-                Dashboard.setVisibility(Dashboard.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-
-                // Fetch and display items if Dashboard is visible
-                if (Dashboard.getVisibility() == View.VISIBLE) {
-                    fetchAndDisplayItems("All");
-                }
-            } else {
-                // If password doesn't match, show error message
-                Toast.makeText(this, "Incorrect password! Action canceled.", Toast.LENGTH_SHORT).show();
+        Communication.sendEmail(this, subject, bodyBuilder.toString(), success -> {
+            if (!success) {
+                Utils.showToast(this, "Report was not sent.");
             }
         });
+    }
 
-        // Show the dialog
+    private void confirmDatabaseReset() {
+        if (!Utils.canResetDatabase(this)) {
+            Utils.showToast(this, "Only the Owner can reset data.");
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Reset sales and stock")
+                .setMessage("Are you sure you want to delete all stock and sales records?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    dbHelper.clearStockTable();
+                    refreshUi();
+                    Utils.success(this, "Stock and sales data cleared.");
+                })
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void showTavernDetailsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Edit Tavern Information");
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_tavern_details, null);
+        builder.setView(dialogView);
+
+        EditText tavernNameEditText = dialogView.findViewById(R.id.dialog_tavern_name);
+        EditText barmanNameEditText = dialogView.findViewById(R.id.dialog_barman_name);
+        Button saveButton = dialogView.findViewById(R.id.dialog_save_button);
+
+        Utils.setCaps(tavernNameEditText);
+        Utils.setCaps(barmanNameEditText);
+        tavernNameEditText.setText(Utils.getTavernName(this));
+        barmanNameEditText.setText(Utils.getBarmanName(this));
+
+        AlertDialog dialog = builder.create();
         dialog.show();
+
+        saveButton.setOnClickListener(v -> {
+            String tavernName = tavernNameEditText.getText().toString().trim();
+            String barmanName = barmanNameEditText.getText().toString().trim();
+
+            if (tavernName.isEmpty() || barmanName.isEmpty()) {
+                Utils.showToast(this, "Both Tavern Name and Barman's Name are required.");
+                return;
+            }
+
+            Utils.saveTavernDetails(this, tavernName, barmanName);
+            dialog.dismiss();
+            refreshUi();
+        });
     }
 
-    private String getReversedDate() {
-        return new StringBuilder(currentDate).reverse().toString();
+    private void redirectToLogin() {
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
+    private interface ValueConsumer {
+        void accept(String value);
+    }
 }
