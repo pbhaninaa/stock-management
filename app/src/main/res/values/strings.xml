@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Stock taking.</string>
+    <string name="app_name">StockPilot</string>
 
     <string name="smtp_host">smtp.gmail.com</string>
     <string name="email_password"></string>

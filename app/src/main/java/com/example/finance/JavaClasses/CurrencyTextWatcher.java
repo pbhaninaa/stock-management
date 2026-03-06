@@ -25,14 +25,17 @@ public class CurrencyTextWatcher implements TextWatcher {
     @Override
     public void onTextChanged(CharSequence s, int start, int before, int count) {
         if (!s.toString().equals(current)) {
-            editText.removeTextChangedListener(this); // Temporarily remove the listener to prevent infinite loop
+            editText.removeTextChangedListener(this);
+            // Temporarily remove the listener to prevent infinite loop
 
-            String cleanString = s.toString().replaceAll("[^\\d]", ""); // Remove all non-numeric characters
+            String cleanString = s.toString().replaceAll("[^\\d]", "");
+            // Remove all non-numeric characters
             double parsed = cleanString.isEmpty() ? 0.0 : Double.parseDouble(cleanString);
 
             // Use DecimalFormat to enforce two decimal places
             DecimalFormat formatter = new DecimalFormat("#,##0.00");
-            String formatted = formatter.format(parsed / 100); // Divide by 100 to handle cents
+            String formatted = formatter.format(parsed / 100);
+            // Divide by 100 to handle cents
 
             current = formatted;
             editText.setText(formatted);
